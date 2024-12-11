@@ -1,0 +1,71 @@
+{
+    "dataset_name": "gen_element_imputed_v202412",
+    "description": "A dataset containing nine sustainability indicators for 18 elements commonly used in HEAs.",
+    "elements": [
+        "Al",
+        "Co",
+        "Cr",
+        "Cu",
+        "Fe",
+        "Hf",
+        "Mn",
+        "Mo",
+        "Nb",
+        "Ni",
+        "Re",
+        "Ru",
+        "Si",
+        "Ta",
+        "Ti",
+        "V",
+        "W",
+        "Zr"
+    ],
+    "indicators": [
+        {
+            "name": "Raw Material Price",
+            "description": "The market price of the element in its pure form.",
+            "unit": "USD/kg"
+        },
+        {
+            "name": "Supply Risk",
+            "description": "Probability of supply disruptions due to geopolitical or natural factors.",
+            "unit": "Probability (0-1)"
+        },
+        {
+            "name": "Normalized Vulnerability to Supply Restriction",
+            "description": "Scarcity metric adjusted for global availability.",
+            "unit": "Probability (0-1)"
+        },
+        {
+            "name": "Embodied Energy",
+            "description": "The energy required for primary production of the element.",
+            "unit": "MJ/kg"
+        },
+        {
+            "name": "Water Usage",
+            "description": "The water consumed in the production of the element.",
+            "unit": "l/kg"
+        },
+        {
+            "name": "Rock-to-Metal Ratio",
+            "description": "Intensity of land use during mining operations.",
+            "unit": "kg/kg"
+        },
+        {
+            "name": "Human Health Damage",
+            "description": "Aggregate impact of element production on human health.",
+            "unit": "Index (0-100)"
+        },
+        {
+            "name": "Human Rights Pressure",
+            "description": "Metric of human rights concerns in sourcing regions.",
+            "unit": "Index (0-100)"
+        },
+        {
+            "name": "Labor Rights Pressure",
+            "description": "Metric of labor rights concerns in sourcing regions.",
+            "unit": "Index (0-100)"
+        }
+    ]
+}
