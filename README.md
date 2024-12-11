@@ -22,8 +22,8 @@ Al, Co, Cr, Cu, Fe, Hf, Mn, Mo, Nb, Ni, Re, Ru, Si, Ta, Ti, V, W, Zr.
 | Labor Rights Pressure  | Metric of labor rights concerns in sourcing regions.                      | Index (0-100) |
 
 ## File Formats
-- **CSV:** Standard comma-delimited file (`gen_element_imputed.csv`).
-- **JSON:** Machine-readable metadata (`gen_element_metadata.json`).
+- **CSV:** Standard comma-delimited file (`gen_element_imputed_v202412.csv`).
+- **JSON:** Machine-readable metadata (`gen_element_metadata_v202412.json`).
 
 ## Access
 The files are available on GitHub for open access.
