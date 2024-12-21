@@ -1,0 +1,271 @@
+{
+    "dataset_name": "gen_18element_imputed_v202412",
+    "description": "A dataset containing 9 sustainability indicators for 18 elements commonly used in HEAs.",
+    "elements": [
+        "Al",
+        "Co",
+        "Cr",
+        "Cu",
+        "Fe",
+        "Hf",
+        "Mn",
+        "Mo",
+        "Nb",
+        "Ni",
+        "Re",
+        "Ru",
+        "Si",
+        "Ta",
+        "Ti",
+        "V",
+        "W",
+        "Zr"
+    ],
+    "indicators": [
+        {
+            "name": "Raw material price",
+            "description": "The market price of the element in its pure form.",
+            "unit": "USD/kg"
+        },
+        {
+            "name": "Supply risk",
+            "description": "Probability of supply disruptions due to geopolitical or natural factors.",
+            "unit": "Probability (0-1)"
+        },
+        {
+            "name": "Normalized vulnerability to supply restriction",
+            "description": "Scarcity metric adjusted for global availability.",
+            "unit": "Probability (0-1)"
+        },
+        {
+            "name": "Embodied energy",
+            "description": "The energy required for primary production of the element.",
+            "unit": "MJ/kg"
+        },
+        {
+            "name": "Water usage",
+            "description": "The water consumed in the production of the element.",
+            "unit": "l/kg"
+        },
+        {
+            "name": "Rock to metal ratio",
+            "description": "Intensity of land use during mining operations.",
+            "unit": "kg/kg"
+        },
+        {
+            "name": "Human health damage",
+            "description": "Aggregate impact of element production on human health.",
+            "unit": "Index (0-100)"
+        },
+        {
+            "name": "Human rights pressure",
+            "description": "Metric of human rights concerns in sourcing regions.",
+            "unit": "Index (0-100)"
+        },
+        {
+            "name": "Labor rights pressure",
+            "description": "Metric of labor rights concerns in sourcing regions.",
+            "unit": "Index (0-100)"
+        }
+    ],
+    "element_indicators": {
+        "Al": {
+            "Raw material price (USD/kg)": 1.6,
+            "Supply risk": 0.01,
+            "Normalized vulnerability to supply restriction": 0.023,
+            "Embodied energy (MJ/kg)": 200.0,
+            "Rock to metal ratio (kg/kg)": 7.0,
+            "Water usage (l/kg)": 1010.0,
+            "Human health damage": 17.7,
+            "Human rights pressure": 49.2,
+            "Labor rights pressure": 34.1
+        },
+        "Co": {
+            "Raw material price (USD/kg)": 29.5,
+            "Supply risk": 0.635,
+            "Normalized vulnerability to supply restriction": 0.124,
+            "Embodied energy (MJ/kg)": 128.0,
+            "Rock to metal ratio (kg/kg)": 859.0,
+            "Water usage (l/kg)": 582.0,
+            "Human health damage": 21.9,
+            "Human rights pressure": 50.6,
+            "Labor rights pressure": 77.9
+        },
+        "Cr": {
+            "Raw material price (USD/kg)": 10.3,
+            "Supply risk": 0.656,
+            "Normalized vulnerability to supply restriction": 0.152,
+            "Embodied energy (MJ/kg)": 578.0,
+            "Rock to metal ratio (kg/kg)": 18.0,
+            "Water usage (l/kg)": 475.0,
+            "Human health damage": 14.0,
+            "Human rights pressure": 34.7,
+            "Labor rights pressure": 21.7
+        },
+        "Cu": {
+            "Raw material price (USD/kg)": 6.0,
+            "Supply risk": 0.337,
+            "Normalized vulnerability to supply restriction": 0.088,
+            "Embodied energy (MJ/kg)": 59.0,
+            "Rock to metal ratio (kg/kg)": 513.0,
+            "Water usage (l/kg)": 313.0,
+            "Human health damage": 46.0,
+            "Human rights pressure": 26.2,
+            "Labor rights pressure": 43.6
+        },
+        "Fe": {
+            "Raw material price (USD/kg)": 0.7,
+            "Supply risk": 0.025,
+            "Normalized vulnerability to supply restriction": 0.101,
+            "Embodied energy (MJ/kg)": 24.0,
+            "Rock to metal ratio (kg/kg)": 9.0,
+            "Water usage (l/kg)": 47.0,
+            "Human health damage": 2.2,
+            "Human rights pressure": 32.7,
+            "Labor rights pressure": 34.0
+        },
+        "Hf": {
+            "Raw material price (USD/kg)": 900.0,
+            "Supply risk": 0.746,
+            "Normalized vulnerability to supply restriction": 0.256,
+            "Embodied energy (MJ/kg)": 1133.0,
+            "Rock to metal ratio (kg/kg)": 3685.0,
+            "Water usage (l/kg)": 8130.0,
+            "Human health damage": 45.5,
+            "Human rights pressure": 1.0,
+            "Labor rights pressure": 1.0
+        },
+        "Mn": {
+            "Raw material price (USD/kg)": 1.6,
+            "Supply risk": 0.579,
+            "Normalized vulnerability to supply restriction": 0.126,
+            "Embodied energy (MJ/kg)": 59.0,
+            "Rock to metal ratio (kg/kg)": 87.0,
+            "Water usage (l/kg)": 243.0,
+            "Human health damage": 6.0,
+            "Human rights pressure": 22.3,
+            "Labor rights pressure": 44.2
+        },
+        "Mo": {
+            "Raw material price (USD/kg)": 26.3,
+            "Supply risk": 0.666,
+            "Normalized vulnerability to supply restriction": 0.141,
+            "Embodied energy (MJ/kg)": 112.0,
+            "Rock to metal ratio (kg/kg)": 4478.0,
+            "Water usage (l/kg)": 359.0,
+            "Human health damage": 55.4,
+            "Human rights pressure": 45.3,
+            "Labor rights pressure": 53.9
+        },
+        "Nb": {
+            "Raw material price (USD/kg)": 80.8,
+            "Supply risk": 0.01,
+            "Normalized vulnerability to supply restriction": 0.229,
+            "Embodied energy (MJ/kg)": 1850.0,
+            "Rock to metal ratio (kg/kg)": 503.0,
+            "Water usage (l/kg)": 155.0,
+            "Human health damage": 22.3,
+            "Human rights pressure": 36.2,
+            "Labor rights pressure": 15.8
+        },
+        "Ni": {
+            "Raw material price (USD/kg)": 11.1,
+            "Supply risk": 0.017,
+            "Normalized vulnerability to supply restriction": 0.088,
+            "Embodied energy (MJ/kg)": 167.0,
+            "Rock to metal ratio (kg/kg)": 250.0,
+            "Water usage (l/kg)": 228.0,
+            "Human health damage": 35.9,
+            "Human rights pressure": 29.7,
+            "Labor rights pressure": 64.6
+        },
+        "Re": {
+            "Raw material price (USD/kg)": 1110.0,
+            "Supply risk": 0.746,
+            "Normalized vulnerability to supply restriction": 0.99,
+            "Embodied energy (MJ/kg)": 8665.0,
+            "Rock to metal ratio (kg/kg)": 102682.0,
+            "Water usage (l/kg)": 3800.0,
+            "Human health damage": 99.0,
+            "Human rights pressure": 11.2,
+            "Labor rights pressure": 36.0
+        },
+        "Ru": {
+            "Raw material price (USD/kg)": 7390.0,
+            "Supply risk": 0.712,
+            "Normalized vulnerability to supply restriction": 0.865,
+            "Embodied energy (MJ/kg)": 24400.0,
+            "Rock to metal ratio (kg/kg)": 218490.0,
+            "Water usage (l/kg)": 196000.0,
+            "Human health damage": 91.8,
+            "Human rights pressure": 17.2,
+            "Labor rights pressure": 15.2
+        },
+        "Si": {
+            "Raw material price (USD/kg)": 1.7,
+            "Supply risk": 0.023,
+            "Normalized vulnerability to supply restriction": 0.104,
+            "Embodied energy (MJ/kg)": 122.0,
+            "Rock to metal ratio (kg/kg)": 3.0,
+            "Water usage (l/kg)": 24.0,
+            "Human health damage": 10.4,
+            "Human rights pressure": 81.1,
+            "Labor rights pressure": 32.1
+        },
+        "Ta": {
+            "Raw material price (USD/kg)": 307.5,
+            "Supply risk": 0.328,
+            "Normalized vulnerability to supply restriction": 0.044,
+            "Embodied energy (MJ/kg)": 4365.0,
+            "Rock to metal ratio (kg/kg)": 8946.0,
+            "Water usage (l/kg)": 648.0,
+            "Human health damage": 56.7,
+            "Human rights pressure": 60.0,
+            "Labor rights pressure": 99.0
+        },
+        "Ti": {
+            "Raw material price (USD/kg)": 13.6,
+            "Supply risk": 0.01,
+            "Normalized vulnerability to supply restriction": 0.024,
+            "Embodied energy (MJ/kg)": 588.0,
+            "Rock to metal ratio (kg/kg)": 99.0,
+            "Water usage (l/kg)": 110.0,
+            "Human health damage": 16.0,
+            "Human rights pressure": 44.0,
+            "Labor rights pressure": 45.4
+        },
+        "V": {
+            "Raw material price (USD/kg)": 385.0,
+            "Supply risk": 0.613,
+            "Normalized vulnerability to supply restriction": 0.113,
+            "Embodied energy (MJ/kg)": 3715.0,
+            "Rock to metal ratio (kg/kg)": 1335.0,
+            "Water usage (l/kg)": 648.0,
+            "Human health damage": 29.1,
+            "Human rights pressure": 88.1,
+            "Labor rights pressure": 39.2
+        },
+        "W": {
+            "Raw material price (USD/kg)": 47.3,
+            "Supply risk": 0.041,
+            "Normalized vulnerability to supply restriction": 0.102,
+            "Embodied energy (MJ/kg)": 578.0,
+            "Rock to metal ratio (kg/kg)": 1081.0,
+            "Water usage (l/kg)": 155.0,
+            "Human health damage": 32.1,
+            "Human rights pressure": 98.4,
+            "Labor rights pressure": 50.4
+        },
+        "Zr": {
+            "Raw material price (USD/kg)": 52.8,
+            "Supply risk": 0.99,
+            "Normalized vulnerability to supply restriction": 0.077,
+            "Embodied energy (MJ/kg)": 1610.0,
+            "Rock to metal ratio (kg/kg)": 275.0,
+            "Water usage (l/kg)": 276.0,
+            "Human health damage": 1.0,
+            "Human rights pressure": 19.0,
+            "Labor rights pressure": 32.2
+        }
+    }
+}
