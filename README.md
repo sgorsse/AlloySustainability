@@ -79,7 +79,7 @@ plt.show()
 ```
 
 ## Example of visuals
-![Figure: Element footprints](images/Radar_plots_Ranking_elements.png)
+![Figure: Element footprints](images/Violon_Plots_Packaging_Python.png)
 
 ## Requirements
 
