@@ -47,12 +47,12 @@ The following figure illustrates the main findings of the related article:
 ## Installation
 
 Install AlloySustainability directly from PyPI:
-
-```bash
+```
 pip install AlloySustainability
+```
 
-## Usage
-
+## Usage: example workflow
+```
 from AlloySustainability.computations import (
     load_element_indicators,
     load_RTHEAs_vs_Fe_df,
@@ -67,16 +67,19 @@ element_indicators = load_element_indicators()
 RTHEAs_Fe_df = load_RTHEAs_vs_Fe_df()
 HTHEAs_Ni_df = load_HTHEAs_vs_Ni_df()
 
-# Define the alloy composition (mass fractions of 18 elements)
-# Make sure the fractions sum up to 1.0
-composition_mass = [0, 0.2, 0.2, 0, 0, 0, 0.2, 0, 0, 0.2, 0, 0, 0, 0, 0, 0, 0.2]
+# Define the alloy composition
+composition_mass = [0, 0.2, 0.2, 0, 0, 0, 0.2, 0, 0, 0.2, 0, 0, 0, 0, 0, 0, 0, 0.2]
 
-# Compute the sustainability impacts
+# Compute sustainability indicators
 new_alloy_impacts = compute_impacts(composition_mass, element_indicators)
 
-# Visualize the alloy impacts compared to reference classes
+# Visualize results
 fig = plot_alloy_comparison(new_alloy_impacts, RTHEAs_Fe_df, HTHEAs_Ni_df)
 plt.show()
+```
+
+## Example of visuals
+![Figure: Element footprints](images/Radar_plots_Ranking_elements.png)
 
 ## Requirements
 
@@ -86,7 +89,6 @@ plt.show()
 - matplotlib
 - seaborn
 - requests
-```
 
 ## Further Reading
 
