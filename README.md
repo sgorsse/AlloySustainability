@@ -31,7 +31,7 @@ The files are available on GitHub for open access.
 ## Element sustainability profile
 The following figure illustrates the main findings of the related article:
 
-![Figure: Element footprints](images/Radar_plots_Ranking_elements.png)
+![Figure: Element footprints](images/Radar_plots_Ranking_18elements.png)
 
 ***
 
