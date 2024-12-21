@@ -86,6 +86,7 @@ plt.show()
 - matplotlib
 - seaborn
 - requests
+```
 
 ## Further Reading
 
