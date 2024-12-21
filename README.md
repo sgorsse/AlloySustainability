@@ -33,6 +33,9 @@ The following figure illustrates the main findings of the related article:
 
 ![Figure: Element footprints](images/Radar_plots_Ranking_elements.png)
 
+***
+***
+
 # Alloy Sustainability Calculator
 
 **AlloySustainability** is a Python package designed to compute and visualize the sustainability impacts of alloys based on their elemental composition. It retrieves key indicators from external data sources (including a file automatically downloaded from GitHub) and produces comprehensive metrics and visualizations.
