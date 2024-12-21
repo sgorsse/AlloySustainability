@@ -28,7 +28,7 @@ Al, Co, Cr, Cu, Fe, Hf, Mn, Mo, Nb, Ni, Re, Ru, Si, Ta, Ti, V, W, Zr.
 ## Access
 The files are available on GitHub for open access.
 
-## Figure
+## Element sustainability profile
 The following figure illustrates the main findings of the related article:
 
 ![Figure: Element footprints](images/Radar_plots_Ranking_elements.png)
@@ -94,4 +94,4 @@ For more information on sustainability indicators in the context of high entropy
 Considering sustainability when searching for new high entropy alloys
 S. Gorsse, T. Langlois, M. R. Barnett
 Sustainable Materials and Technologies 40 (2024) e00938
-https://doi.org/10.1016/j.susmat.2024.e00938
+[https://doi.org/10.1016/j.susmat.2024.e00938](https://doi.org/10.1016/j.susmat.2024.e00938)
