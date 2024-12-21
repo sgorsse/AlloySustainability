@@ -96,7 +96,5 @@ plt.show()
 
 For more information on sustainability indicators in the context of high entropy alloys, please refer to:
 
-*Considering sustainability when searching for new high entropy alloys* <br>
-S. Gorsse, T. Langlois, M. R. Barnett <br>
-Sustainable Materials and Technologies 40 (2024) e00938 <br>
+S. Gorsse, T. Langlois, and M. R. Barnett, *Considering sustainability when searching for new high entropy alloys*, Sustainable Materials and Technologies 40 (2024) e00938 <br>
 [https://doi.org/10.1016/j.susmat.2024.e00938](https://doi.org/10.1016/j.susmat.2024.e00938)
