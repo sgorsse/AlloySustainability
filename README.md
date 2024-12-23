@@ -53,6 +53,17 @@ Install AlloySustainability directly from PyPI:
 pip install AlloySustainability
 ```
 
+## Recommended Environment: Google Colab
+
+To ensure the best experience and compatibility, it is highly recommended to use **Google Colab** for running this package. Google Colab provides a preconfigured Python environment with most dependencies pre-installed, and it allows seamless integration with cloud-based data retrieval.
+
+To get started:
+1. Open [Google Colab](https://colab.research.google.com).
+2. Install the package.
+3. Run the example usage code in a Colab notebook.
+
+This ensures minimal configuration and avoids potential environment-related issues.
+
 ## Usage: example workflow
 ```
 from AlloySustainability.computations import (
