@@ -248,7 +248,7 @@ def create_dashboard(user_results, df_benchmarks):
 st.title("🌍 Alloy Sustainability Calculator")
 st.markdown(f"**Compatible elements:** {SUPPORTED_ELEMENTS_STR}")
 st.markdown("""
-Enter your alloy composition to assess its **Economic, Environmental, and Societal footprint** against commercial standards (Steels, Ni-based superalloys) and literature High Entropy Alloys (HEAs/RHEAs/CCSAs).
+Enter your alloy composition to assess its **Economic, Environmental, and Societal footprint** against commercial standards (Steels, Ni-based superalloys) and literature High Entropy Alloys (HEAs/RHEAs/CCAs/HESAs).
 
 Based on the datasets and methodologies published in:
 * S. Gorsse et al., *Considering sustainability when searching for new high entropy alloys*, **Sustainable Materials and Technologies** 40 (2024) e00938 [Link](https://doi.org/10.1016/j.susmat.2024.e00938)
