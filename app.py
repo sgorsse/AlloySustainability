@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 import re
 import os
 
@@ -10,11 +9,10 @@ import os
 st.set_page_config(
     page_title="Alloy Sustainability Calculator",
     page_icon="🌍",
-    layout="wide"
+    layout="centered"  # Centered layout often looks better for vertical stacked plots
 )
 
 # --- CONSTANTS ---
-# Atomic masses (g/mol)
 ATOMIC_MASSES = {
     'Al': 26.9815, 'Co': 58.9331, 'Cr': 51.9961, 'Cu': 63.546, 'Fe': 55.845,
     'Hf': 178.49, 'Mn': 54.938, 'Mo': 95.95, 'Nb': 92.906, 'Ni': 58.6934,
@@ -22,17 +20,28 @@ ATOMIC_MASSES = {
     'V': 50.9415, 'W': 183.84, 'Zr': 91.224
 }
 
-# Categorization and Units
+SUPPORTED_ELEMENTS_STR = ", ".join(sorted(ATOMIC_MASSES.keys()))
+
+# Configuration: Category, Unit, and if Unit should be hidden (dimensionless)
 INDICATOR_INFO = {
     'Mass price (USD/kg)': {'cat': 'Economic', 'unit': 'USD/kg'},
-    'Supply risk': {'cat': 'Economic', 'unit': 'Index (0-1)'},
-    'Normalized vulnerability to supply restriction': {'cat': 'Economic', 'unit': 'Index'},
+    'Supply risk': {'cat': 'Economic', 'unit': ''}, # No unit displayed
+    'Normalized vulnerability to supply restriction': {'cat': 'Economic', 'unit': ''}, # No unit displayed
     'Embodied energy (MJ/kg)': {'cat': 'Environmental', 'unit': 'MJ/kg'},
     'Rock to metal ratio (kg/kg)': {'cat': 'Environmental', 'unit': 'kg/kg'},
     'Water usage (l/kg)': {'cat': 'Environmental', 'unit': 'l/kg'},
-    'Human health damage': {'cat': 'Societal', 'unit': 'Points'},
-    'Human rights pressure': {'cat': 'Societal', 'unit': 'Points'},
-    'Labor rights pressure': {'cat': 'Societal', 'unit': 'Points'}
+    'Human health damage': {'cat': 'Societal', 'unit': ''}, # No unit displayed
+    'Human rights pressure': {'cat': 'Societal', 'unit': ''}, # No unit displayed
+    'Labor rights pressure': {'cat': 'Societal', 'unit': ''}
+}
+
+# Colors for the plot
+CLASS_COLORS = {
+    'BCC-(R)HEAs & HESAs': '#377eb8', # Blue
+    'FCC HEAs': '#4daf4a',            # Green
+    'Ni superalloys': '#ff7f00',      # Orange
+    'Steels': '#984ea3',              # Purple
+    'Evaluated alloy': '#e41a1c'      # Red
 }
 
 # --- DATA LOADING ---
@@ -63,13 +72,10 @@ def load_data():
         
         df_bench = pd.concat(benchmarks, ignore_index=True)
         
-        # Map disparate column names if necessary (Files seem consistent on indicators based on inspection)
-        # Calculate mean values per Class for plotting
+        # Calculate Median per Class for plotting (Robust center)
         indicators = list(INDICATOR_INFO.keys())
-        # Filter only existing columns
         valid_indicators = [col for col in indicators if col in df_bench.columns]
-        
-        df_bench_grouped = df_bench.groupby('Class')[valid_indicators].mean().reset_index()
+        df_bench_grouped = df_bench.groupby('Class')[valid_indicators].median().reset_index()
         
     except FileNotFoundError:
         st.warning("Benchmark files not found. Comparison will be disabled.")
@@ -79,37 +85,28 @@ def load_data():
 
 # --- LOGIC ---
 def parse_formula(formula):
-    """Parses chemical formula string (e.g., 'Co20Cr20') into a dictionary."""
-    # Regex to find Element and Number. Handles integers and floats.
-    # If no number matches, assumes 1.0 (handled by logic below if we wanted, but strict regex here)
+    """Parses chemical formula string."""
     pattern = re.findall(r"([A-Z][a-z]?)([0-9]*\.?[0-9]*)", formula)
-    
     composition = {}
     for el, qty in pattern:
         if el not in ATOMIC_MASSES:
-            return None, f"Element '{el}' is not supported (only 18 specific elements)."
-        
+            return None, f"Element '{el}' not supported."
         amount = float(qty) if qty else 1.0
         composition[el] = composition.get(el, 0) + amount
         
     if not composition:
-        return None, "Invalid format. Use standard notation like 'Co20Cr20Fe40Ni20'."
-        
+        return None, "Invalid format."
     return composition, None
 
 def convert_at_to_wt(composition_at):
     """Converts atomic percentage dictionary to mass fraction series."""
     mass_dict = {}
     total_mass = 0.0
-    
     for el, at_pct in composition_at.items():
         mass = at_pct * ATOMIC_MASSES.get(el, 0)
         mass_dict[el] = mass
         total_mass += mass
-        
-    if total_mass == 0:
-        return pd.Series()
-    
+    if total_mass == 0: return pd.Series()
     return pd.Series({k: v / total_mass for k, v in mass_dict.items()})
 
 def calculate_impacts(mass_fractions, data_df):
@@ -120,154 +117,173 @@ def calculate_impacts(mass_fractions, data_df):
     
     for ind in INDICATOR_INFO.keys():
         if ind == 'Supply risk':
-            # Specific formula: 1 - Product(1 - fraction * risk)
             risk_vector = data_df['Supply risk']
             risk_contrib = 1 - (full_wt_vector * risk_vector)
             results[ind] = 1 - risk_contrib.prod()
         else:
-            # Weighted average
             if ind in data_df.columns:
                 results[ind] = full_wt_vector.dot(data_df[ind])
             else:
                 results[ind] = 0.0
-                
     return results
 
-# --- APP LAYOUT ---
+# --- PLOTTING FUNCTION (MATPLOTLIB) ---
+def plot_comparison(user_results, df_benchmarks):
+    """
+    Creates a static Matplotlib figure comparing User Alloy vs Benchmarks.
+    Style: Vertical lines for benchmarks, Red Dot for user.
+    """
+    indicators = list(INDICATOR_INFO.keys())
+    
+    # Setup Figure
+    # Height scales with number of indicators
+    fig, axes = plt.subplots(len(indicators), 1, figsize=(10, 12), sharey=False)
+    plt.subplots_adjust(hspace=0.6) # Add space between plots
+    
+    # Legend Data Collection
+    legend_handles = {} # Use dict to avoid duplicates
+
+    for idx, indicator in enumerate(indicators):
+        ax = axes[idx]
+        
+        # Aesthetic setup
+        ax.set_facecolor('#fafafa')
+        ax.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.7)
+        ax.set_yticks([]) # Hide Y axis
+        
+        # Remove top/right/left spines for cleanliness
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['bottom'].set_color('#dddddd')
+
+        # 1. Plot Benchmarks (Vertical Lines)
+        if df_benchmarks is not None:
+            for _, row in df_benchmarks.iterrows():
+                cls_name = row['Class']
+                if indicator in row:
+                    val = row[indicator]
+                    color = CLASS_COLORS.get(cls_name, 'gray')
+                    
+                    line = ax.axvline(x=val, color=color, linewidth=4, alpha=0.7, zorder=2)
+                    
+                    # Store for legend
+                    if cls_name not in legend_handles:
+                        legend_handles[cls_name] = line
+
+        # 2. Plot User Alloy (Red Dot)
+        user_val = user_results.get(indicator, 0)
+        scatter = ax.scatter(user_val, 0, color=CLASS_COLORS['Evaluated alloy'], 
+                             s=150, edgecolors='white', linewidth=1.5, zorder=5)
+        
+        if 'Evaluated alloy' not in legend_handles:
+             legend_handles['Evaluated alloy'] = scatter
+
+        # 3. Titles and Limits
+        unit = INDICATOR_INFO[indicator]['unit']
+        unit_str = f" ({unit})" if unit else ""
+        
+        # Clean Title
+        clean_title = indicator.split('(')[0].strip()
+        ax.set_title(f"{clean_title}{unit_str}", loc='left', fontsize=11, fontweight='bold', color='#333333')
+        
+        # Dynamic Limits with padding
+        # Collect all points to determine limits
+        all_vals = [user_val]
+        if df_benchmarks is not None and indicator in df_benchmarks.columns:
+            all_vals.extend(df_benchmarks[indicator].dropna().tolist())
+        
+        if all_vals:
+            min_v, max_v = min(all_vals), max(all_vals)
+            margin = (max_v - min_v) * 0.1 if max_v != min_v else max_v * 0.1
+            ax.set_xlim(min_v - margin, max_v + margin)
+            
+            # Formatting X-axis tick labels
+            if max_v > 1000:
+                ax.ticklabel_format(axis='x', style='sci', scilimits=(0,0))
+
+    # Global Legend
+    # Sort legend to put User First, then Alphabetical Benchmarks
+    sorted_labels = ['Evaluated alloy'] + sorted([k for k in legend_handles.keys() if k != 'Evaluated alloy'])
+    handles_list = [legend_handles[l] for l in sorted_labels if l in legend_handles]
+    
+    fig.legend(
+        handles=handles_list,
+        labels=sorted_labels,
+        loc='upper center',
+        bbox_to_anchor=(0.5, 0.05), # Position at bottom
+        ncol=len(sorted_labels),
+        frameon=False,
+        fontsize=10
+    )
+    
+    return fig
+
+# --- APP MAIN ---
+
 st.title("🌍 Alloy Sustainability Calculator")
-st.markdown("Compare the **Economic, Environmental, and Societal impacts** of your alloy against industry standards.")
+
+st.markdown(f"""
+Compare the **Economic, Environmental, and Societal impacts** of your alloy against industry standards.  
+**Compatible elements:** {SUPPORTED_ELEMENTS_STR}
+""")
 
 # Load Data
 df_elements, df_benchmarks = load_data()
 if df_elements is None:
     st.stop()
 
-# 1. INPUT SECTION
-with st.container():
-    st.subheader("1. Alloy Composition")
-    c1, c2 = st.columns([2, 1])
-    
-    with c1:
-        formula_input = st.text_input(
-            "Enter Alloy Formula (Atomic %)", 
-            value="Co20Cr20Fe40Ni20",
-            help="Example: Co20Cr20Fe40Ni20. Elements must be among: " + ", ".join(sorted(ATOMIC_MASSES.keys()))
-        )
-    
-    # Parse and Calculate
-    comp_at, error_msg = parse_formula(formula_input)
-    
-    if error_msg:
-        st.error(error_msg)
-        st.stop()
-        
-    # Validate Total
-    total_at = sum(comp_at.values())
-    if abs(total_at - 100.0) > 0.1 and total_at != 0:
-        st.warning(f"Note: Total atomic % is {total_at:.1f}%. It will be normalized to 100% for calculation.")
+# --- INPUT SECTION ---
+st.markdown("### 1. Define Alloy")
+formula_input = st.text_input(
+    "Enter Alloy Formula (Atomic %)", 
+    value="Co20Cr20Fe40Ni20",
+    help="Example: Co20Cr20Fe40Ni20"
+)
 
-    mass_fractions = convert_at_to_wt(comp_at)
-    user_impacts = calculate_impacts(mass_fractions, df_elements)
+# Process Input
+comp_at, error_msg = parse_formula(formula_input)
+if error_msg:
+    st.error(error_msg)
+    st.stop()
 
-# 2. VISUALIZATION SECTION
+# Calculation
+total_at = sum(comp_at.values())
+if abs(total_at - 100.0) > 0.1 and total_at != 0:
+    st.caption(f"Note: Input total is {total_at:.1f}%. Normalizing to 100%.")
+
+mass_fractions = convert_at_to_wt(comp_at)
+user_impacts = calculate_impacts(mass_fractions, df_elements)
+
+# --- RESULTS SECTION ---
 st.divider()
-st.subheader("2. Sustainability Profile & Benchmarking")
+st.markdown("### 2. Sustainability Profile")
 
-# Prepare Data for Plotting
-# User Data
-plot_data = []
-for ind, val in user_impacts.items():
-    meta = INDICATOR_INFO.get(ind, {})
-    plot_data.append({
-        'Indicator': ind,
-        'Value': val,
-        'Type': 'Your Alloy',
-        'Category': meta.get('cat', 'Other'),
-        'Unit': meta.get('unit', '')
-    })
-
-# Benchmark Data
+# Create and Display Plot
 if df_benchmarks is not None:
-    for _, row in df_benchmarks.iterrows():
-        cls_name = row['Class']
-        for ind in INDICATOR_INFO.keys():
-            if ind in row:
-                meta = INDICATOR_INFO.get(ind, {})
-                plot_data.append({
-                    'Indicator': ind,
-                    'Value': row[ind],
-                    'Type': cls_name, # e.g., "Steels", "Ni superalloys"
-                    'Category': meta.get('cat', 'Other'),
-                    'Unit': meta.get('unit', '')
-                })
+    fig = plot_comparison(user_impacts, df_benchmarks)
+    st.pyplot(fig, use_container_width=True)
+else:
+    st.warning("Benchmarks unavailable, displaying raw numbers only.")
 
-df_plot = pd.DataFrame(plot_data)
+# --- METRICS SECTION (Compact) ---
+with st.expander("View Detailed Values"):
+    cols = st.columns(3)
+    categories = ['Economic', 'Environmental', 'Societal']
 
-# Sort for tidy plotting
-df_plot = df_plot.sort_values(by=['Category', 'Indicator'])
-
-# Create Plot
-fig = px.bar(
-    df_plot,
-    x="Value",
-    y="Indicator",
-    color="Type",
-    barmode="group",
-    orientation='h',
-    text_auto='.2s',
-    height=800,
-    color_discrete_map={
-        "Your Alloy": "#E63946",  # Red for visibility
-        "Steels": "#A8DADC",
-        "Ni superalloys": "#457B9D",
-        "FCC HEAs": "#1D3557",
-        "BCC-(R)HEAs & HESAs": "#F1FAEE"
-    }
-)
-
-fig.update_layout(
-    xaxis_type="log",
-    xaxis_title="Impact Value (Log Scale)",
-    yaxis_title="",
-    legend_title="Alloy Class",
-    font=dict(size=14),
-    margin=dict(l=250) # More space for long labels
-)
-
-# Update y-axis labels to include units if desired, or keep them clean
-# Adding units to hover text is automatic
-st.plotly_chart(fig, use_container_width=True)
-
-
-# 3. DETAILED METRICS
-st.divider()
-st.subheader("3. Detailed Metrics")
-
-cols = st.columns(3)
-categories = ['Economic', 'Environmental', 'Societal']
-
-for i, cat in enumerate(categories):
-    with cols[i]:
-        st.markdown(f"#### {cat}")
-        # Filter user data for this category
-        cat_impacts = {k:v for k,v in user_impacts.items() if INDICATOR_INFO[k]['cat'] == cat}
-        
-        for name, val in cat_impacts.items():
-            unit = INDICATOR_INFO[name]['unit']
-            # Clean name for display
-            short_name = name.split('(')[0].strip()
+    for i, cat in enumerate(categories):
+        with cols[i]:
+            st.markdown(f"**{cat}**")
+            cat_impacts = {k:v for k,v in user_impacts.items() if INDICATOR_INFO[k]['cat'] == cat}
             
-            # Formatting
-            if val < 1:
-                fmt_val = f"{val:.3f}"
-            elif val < 100:
-                fmt_val = f"{val:.1f}"
-            else:
-                fmt_val = f"{val:.0f}"
+            for name, val in cat_impacts.items():
+                unit = INDICATOR_INFO[name]['unit']
+                # Formatting logic
+                if val < 1: fmt = "{:.4f}"
+                elif val < 100: fmt = "{:.2f}"
+                else: fmt = "{:.0f}"
                 
-            st.metric(label=short_name, value=f"{fmt_val} {unit}")
-
-# Footer Data Table
-with st.expander("Show Raw Data"):
-    st.write("Values for **Your Alloy**:")
-    st.dataframe(pd.DataFrame([user_impacts]))
+                display_val = fmt.format(val)
+                display_unit = f" {unit}" if unit else ""
+                
+                st.write(f"{name.split('(')[0]}: **{display_val}{display_unit}**")
