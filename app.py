@@ -247,14 +247,14 @@ def create_dashboard(user_results, df_benchmarks):
 # --- APP EXECUTION ---
 st.title("🌍 Alloy Sustainability Calculator")
 st.markdown(f"**Compatible elements:** {SUPPORTED_ELEMENTS_STR}")
-st.markdown(""""
+st.markdown("""
 Enter your alloy composition to assess its **Economic, Environmental, and Societal footprint** against commercial standards (Steels, Ni-based superalloys) and literature High Entropy Alloys (HEAs/RHEAs/CCSAs).
 
 Based on the datasets and methodologies published in:
 * S. Gorsse et al., *Sustainable Materials and Technologies* 40 (2024) [e00938](https://doi.org/10.1016/j.susmat.2024.e00938)
 * S. Gorsse et al., *Scientific Data* 12 (2025) [288](https://doi.org/10.1038/s41597-025-04568-x)
 * S. Gorsse et al., *Metall. Mater. Trans. A* (2025) [Link](https://doi.org/10.1007/s11661-025-07928-9)
-"""")
+""")
 
 df_elements, df_benchmarks = load_data()
 
