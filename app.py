@@ -10,20 +10,27 @@ import os
 st.set_page_config(
     page_title="Alloy Sustainability Calculator",
     page_icon="🌍",
-    layout="wide"  # Layout 'Wide' pour profiter de l'espace grille
+    layout="wide"
 )
 
-# --- STYLING MATPLOTLIB ---
-# Configuration globale pour un rendu "Publication Quality"
+# --- DARK MODE STYLING (MATPLOTLIB) ---
+# On configure Matplotlib pour qu'il s'adapte au fond sombre
 plt.rcParams.update({
     'font.family': 'sans-serif',
     'font.sans-serif': ['Arial', 'DejaVu Sans'],
     'font.size': 10,
+    'text.color': '#fafafa',        # Texte quasi blanc
+    'axes.labelcolor': '#fafafa',   # Labels blancs
+    'xtick.color': '#fafafa',       # Ticks X blancs
+    'ytick.color': '#fafafa',       # Ticks Y blancs
+    'axes.edgecolor': '#444444',    # Bordures gris foncé discret
+    'axes.facecolor': 'none',       # Fond des axes transparent
+    'figure.facecolor': 'none',     # Fond de la figure transparent
+    'grid.color': '#444444',        # Grille discrète
+    'grid.alpha': 0.5,
     'axes.linewidth': 0.8,
     'axes.titlesize': 12,
     'axes.titleweight': 'bold',
-    'xtick.labelsize': 9,
-    'ytick.labelsize': 9,
     'legend.fontsize': 10,
     'figure.titlesize': 16
 })
@@ -38,37 +45,36 @@ ATOMIC_MASSES = {
 
 SUPPORTED_ELEMENTS_STR = ", ".join(sorted(ATOMIC_MASSES.keys()))
 
-# Structure des indicateurs pour la grille 3x3
 INDICATOR_GRID = [
-    # Row 1: Economic
     ['Mass price (USD/kg)', 'Supply risk', 'Normalized vulnerability to supply restriction'],
-    # Row 2: Environmental
     ['Embodied energy (MJ/kg)', 'Rock to metal ratio (kg/kg)', 'Water usage (l/kg)'],
-    # Row 3: Societal
     ['Human health damage', 'Human rights pressure', 'Labor rights pressure']
 ]
 
-# Meta-data pour l'affichage
+# Couleurs adaptées au Dark Mode (plus lumineuses/pastel)
 INDICATOR_META = {
-    'Mass price (USD/kg)': {'unit': 'USD/kg', 'color': '#1f77b4'}, # Blue
-    'Supply risk': {'unit': '', 'color': '#1f77b4'},
-    'Normalized vulnerability to supply restriction': {'unit': '', 'color': '#1f77b4'},
-    'Embodied energy (MJ/kg)': {'unit': 'MJ/kg', 'color': '#2ca02c'}, # Green
-    'Rock to metal ratio (kg/kg)': {'unit': 'kg/kg', 'color': '#2ca02c'},
-    'Water usage (l/kg)': {'unit': 'l/kg', 'color': '#2ca02c'},
-    'Human health damage': {'unit': '', 'color': '#ff7f0e'}, # Orange
-    'Human rights pressure': {'unit': '', 'color': '#ff7f0e'},
-    'Labor rights pressure': {'unit': '', 'color': '#ff7f0e'}
+    # Economic: Cyan/Light Blue
+    'Mass price (USD/kg)': {'unit': 'USD/kg', 'color': '#4fc3f7'}, 
+    'Supply risk': {'unit': '', 'color': '#4fc3f7'},
+    'Normalized vulnerability to supply restriction': {'unit': '', 'color': '#4fc3f7'},
+    # Environmental: Light Green
+    'Embodied energy (MJ/kg)': {'unit': 'MJ/kg', 'color': '#81c784'}, 
+    'Rock to metal ratio (kg/kg)': {'unit': 'kg/kg', 'color': '#81c784'},
+    'Water usage (l/kg)': {'unit': 'l/kg', 'color': '#81c784'},
+    # Societal: Light Orange/Peach
+    'Human health damage': {'unit': '', 'color': '#ffb74d'}, 
+    'Human rights pressure': {'unit': '', 'color': '#ffb74d'},
+    'Labor rights pressure': {'unit': '', 'color': '#ffb74d'}
 }
 
-# Couleurs des familles (Palette douce et professionnelle)
+# Couleurs des familles (Palette distincte sur fond sombre)
 CLASS_COLORS = {
-    'Steels': '#bdc3c7',              # Light Grey
-    'Ni superalloys': '#f39c12',      # Orange
-    'FCC HEAs': '#2ecc71',            # Green
-    'BCC-(R)HEAs & HESAs': '#3498db'  # Blue
+    'Steels': '#95a5a6',              # Cool Grey
+    'Ni superalloys': '#f39c12',      # Bright Orange
+    'FCC HEAs': '#2ecc71',            # Bright Green
+    'BCC-(R)HEAs & HESAs': '#3498db'  # Bright Blue
 }
-USER_COLOR = '#e74c3c' # Red
+USER_COLOR = '#ff4b4b' # Streamlit Red (Bright)
 
 # --- DATA LOADING ---
 @st.cache_data
@@ -79,7 +85,6 @@ def load_data():
         df_elements = df_elements.rename(columns={'Raw material price (USD/kg)': 'Mass price (USD/kg)'})
         df_elements = df_elements.set_index('elements')
     except FileNotFoundError:
-        st.error("File 'gen_18element_imputed_v202412.csv' not found.")
         return None, None
 
     benchmarks = []
@@ -90,7 +95,6 @@ def load_data():
         benchmarks.append(df_fe)
         df_bench = pd.concat(benchmarks, ignore_index=True)
     except FileNotFoundError:
-        st.warning("Benchmark files not found. Comparison disabled.")
         df_bench = None
 
     return df_elements, df_bench
@@ -136,26 +140,29 @@ def calculate_impacts(mass_fractions, data_df):
 # --- VISUALIZATION ENGINE ---
 def create_dashboard(user_results, df_benchmarks):
     """
-    Creates a 3x3 Grid Dashboard with Violin Plots.
+    Creates a 3x3 Grid Dashboard optimized for Dark Background.
     """
+    # Force transparent figure background
     fig, axes = plt.subplots(3, 3, figsize=(18, 12))
-    plt.subplots_adjust(wspace=0.3, hspace=0.5)
+    fig.patch.set_alpha(0.0)
     
-    # Flatten axes for easy iteration if needed, but we use nested loops here
+    plt.subplots_adjust(wspace=0.35, hspace=0.6)
     
     benchmark_classes = sorted([c for c in CLASS_COLORS.keys() if c in df_benchmarks['Class'].unique()])
     
     for row_idx in range(3):
         for col_idx in range(3):
             ax = axes[row_idx, col_idx]
+            # Force transparent axes background
+            ax.patch.set_alpha(0.0)
+            
             indicator = INDICATOR_GRID[row_idx][col_idx]
             meta = INDICATOR_META[indicator]
             
             # 1. Prepare Data
             data_per_class = []
             valid_classes = []
-            
-            all_vals = [user_results.get(indicator, 0)] # Start with user val for scale
+            all_vals = [user_results.get(indicator, 0)]
             
             if df_benchmarks is not None and indicator in df_benchmarks.columns:
                 for cls in benchmark_classes:
@@ -165,113 +172,86 @@ def create_dashboard(user_results, df_benchmarks):
                         valid_classes.append(cls)
                         all_vals.extend(subset.values)
             
-            # 2. Determine Scale (Log vs Linear)
-            # Filter positive values for log check
+            # 2. Determine Scale
             pos_vals = [v for v in all_vals if v > 0]
             if not pos_vals: pos_vals = [0.1]
             vmin, vmax = min(pos_vals), max(pos_vals)
-            
-            use_log = False
-            if vmax / vmin > 50:
-                use_log = True
+            use_log = (vmax / vmin > 50)
                 
-            # 3. Plot Violins (Benchmarks)
-            # Note: Violinplot handles log data poorly natively in matplotlib (KDE issues).
-            # We will plot on linear scale but transform data if needed, or simply use boxplot if log is extreme.
-            # However, simpler approach for stability: Use Boxplot for technical rigour on log scales, 
-            # or Violin on linear data. Given the range (e.g. Price), Log is mandatory.
-            # Let's use simple Horizontal Boxplots which are very robust and clean.
-            
-            # Position classes on Y axis: 0, 1, 2...
+            # 3. Plot Horizontal Boxplots
             positions = np.arange(len(valid_classes))
             
             if valid_classes:
-                # Create the boxplot
-                # vert=False -> Horizontal
                 bp = ax.boxplot(data_per_class, positions=positions, vert=False, 
                                 patch_artist=True, widths=0.6,
-                                showfliers=False, # Hide outliers for cleaner look
-                                boxprops=dict(linewidth=0), # No border on box fill
+                                showfliers=False,
+                                # Props for Dark Mode: White edges for boxes
+                                boxprops=dict(linewidth=1, color='#fafafa'),
+                                whiskerprops=dict(color='#fafafa', linewidth=1),
+                                capprops=dict(color='#fafafa', linewidth=1),
                                 medianprops=dict(color='white', linewidth=2))
                 
-                # Color the boxes
+                # Fill colors
                 for patch, cls in zip(bp['boxes'], valid_classes):
                     patch.set_facecolor(CLASS_COLORS[cls])
-                    patch.set_alpha(0.7)
+                    patch.set_alpha(0.8) # Slightly more opaque for contrast
             
             # 4. Plot User Alloy
             user_val = user_results.get(indicator, 0)
             
-            # Add a vertical line for User Value
-            # ax.axvline(...) draws across the whole plot
-            ax.axvline(user_val, color=USER_COLOR, linewidth=2.5, linestyle='-', zorder=10)
-            
-            # Add a small text annotation for the user value on top of the line
-            # Determine position: slightly above the top box
-            top_y = len(valid_classes) - 0.5
+            # Vertical line for User
+            ax.axvline(user_val, color=USER_COLOR, linewidth=3, linestyle='-', zorder=10)
             
             # 5. Styling
             ax.set_yticks(positions)
-            ax.set_yticklabels(valid_classes)
+            ax.set_yticklabels(valid_classes, color='#eeeeee') # Light grey labels
             
-            # Remove spines
+            # Spines: Keep bottom, hide others
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             ax.spines['left'].set_visible(False)
-            ax.spines['bottom'].set_color('#dddddd')
+            ax.spines['bottom'].set_color('#666666')
             
             # Grid
-            ax.grid(True, axis='x', color='#eeeeee', linestyle='--')
+            ax.grid(True, axis='x', color='#444444', linestyle='--')
             
             # Title
-            # Clean title
             clean_title = indicator.split('(')[0].strip()
             unit_str = f" ({meta['unit']})" if meta['unit'] else ""
             
-            # Title color matches category
             ax.set_title(f"{clean_title}{unit_str}", 
-                         color=meta['color'], loc='left', pad=10)
+                         color=meta['color'], loc='left', pad=10, fontweight='bold')
             
-            # Scale
+            # Scale & Limits
             if use_log:
                 ax.set_xscale('log')
-                # Add some padding to x-limits
                 if vmin > 0:
                     ax.set_xlim(vmin * 0.5, vmax * 2)
             else:
-                 # Add 5% padding
                  margin = (vmax - vmin) * 0.1
                  ax.set_xlim(min(all_vals) - margin, max(all_vals) + margin)
 
-            # Re-enable user line if it was clipped by limits?
-            # Usually axvline works regardless, but let's ensure limits cover it
-            cur_xlim = ax.get_xlim()
-            if user_val < cur_xlim[0] or user_val > cur_xlim[1]:
-                # Expand to include user
-                new_min = min(cur_xlim[0], user_val * 0.8 if user_val>0 else user_val-0.1)
-                new_max = max(cur_xlim[1], user_val * 1.2 if user_val>0 else user_val+0.1)
-                ax.set_xlim(new_min, new_max)
-
-    # Global Legend (Manual)
+    # 6. Global Legend
     handles = []
-    # Add Benchmarks
     for cls, color in CLASS_COLORS.items():
         if df_benchmarks is not None and cls in df_benchmarks['Class'].unique():
-            patch = mpatches.Patch(color=color, label=cls, alpha=0.7)
+            patch = mpatches.Patch(color=color, label=cls, alpha=0.8)
             handles.append(patch)
     
-    # Add User
-    user_line = plt.Line2D([0], [0], color=USER_COLOR, linewidth=2.5, label='Your Alloy')
-    handles.insert(0, user_line) # Put user first
+    # User Line Legend
+    user_line = plt.Line2D([0], [0], color=USER_COLOR, linewidth=3, label='Your Alloy')
+    handles.insert(0, user_line)
     
-    fig.legend(handles=handles, loc='lower center', ncol=len(handles), 
+    # Legend Text Color forced to white
+    leg = fig.legend(handles=handles, loc='lower center', ncol=len(handles), 
                bbox_to_anchor=(0.5, 0.02), frameon=False, fontsize=12)
+    for text in leg.get_texts():
+        text.set_color('#fafafa')
     
-    # Add global titles for rows? (Economic, Env, Soc)
-    # Using text annotations on the figure
-    fig.text(0.01, 0.78, "Economic", rotation=90, va='center', ha='left', fontsize=14, fontweight='bold', color='#1f77b4')
-    fig.text(0.01, 0.50, "Environment", rotation=90, va='center', ha='left', fontsize=14, fontweight='bold', color='#2ca02c')
-    fig.text(0.01, 0.22, "Societal", rotation=90, va='center', ha='left', fontsize=14, fontweight='bold', color='#ff7f0e')
+    # Category Labels (Sidebar text)
+    fig.text(0.01, 0.78, "Economic", rotation=90, va='center', ha='left', fontsize=14, fontweight='bold', color=INDICATOR_META['Mass price (USD/kg)']['color'])
+    fig.text(0.01, 0.50, "Environment", rotation=90, va='center', ha='left', fontsize=14, fontweight='bold', color=INDICATOR_META['Embodied energy (MJ/kg)']['color'])
+    fig.text(0.01, 0.22, "Societal", rotation=90, va='center', ha='left', fontsize=14, fontweight='bold', color=INDICATOR_META['Human health damage']['color'])
 
     return fig
 
@@ -284,6 +264,7 @@ st.markdown("Enter your alloy composition to assess its **Economic, Environmenta
 df_elements, df_benchmarks = load_data()
 
 if df_elements is None:
+    st.error("Data files not found. Please ensure `data/` folder contains the CSV files.")
     st.stop()
 
 # --- INPUT ---
@@ -311,13 +292,13 @@ st.markdown("### 2. Sustainability Dashboard")
 
 if df_benchmarks is not None:
     fig = create_dashboard(user_results, df_benchmarks)
+    # Background transparent is handled in fig creation, but streamlit needs to respect it
     st.pyplot(fig, use_container_width=True)
 else:
     st.warning("Benchmark data missing. Cannot generate dashboard.")
 
 # --- DATA TABLE ---
 with st.expander("📊 View Detailed Data Table"):
-    # Create a nice dataframe
     rows = []
     for k, v in user_results.items():
         meta = INDICATOR_META[k]
