@@ -95,13 +95,29 @@ def load_data():
 
 # --- LOGIC ---
 def parse_formula(formula):
+    """
+    Parses chemical formula and validates elements.
+    Returns: (composition_dict, error_message)
+    """
+    if not formula or not formula.strip():
+        return None, "Please enter a valid alloy formula."
+
+    # 1. Regex parsing
     pattern = re.findall(r"([A-Z][a-z]?)([0-9]*\.?[0-9]*)", formula)
+    
+    # Check if regex actually found anything
+    if not pattern:
+        return None, "Invalid format. Use standard notation like 'Co20Cr20'."
+
     composition = {}
     for el, qty in pattern:
-        if el not in ATOMIC_MASSES: return None, f"Element '{el}' not supported."
+        # 2. Check Supported Elements
+        if el not in ATOMIC_MASSES:
+            return None, f"⛔ Element '{el}' is not supported. Compatible elements: {SUPPORTED_ELEMENTS_STR}."
+        
         amount = float(qty) if qty else 1.0
         composition[el] = composition.get(el, 0) + amount
-    if not composition: return None, "Invalid format."
+        
     return composition, None
 
 def convert_at_to_wt(composition_at):
@@ -133,17 +149,11 @@ def calculate_impacts(mass_fractions, data_df):
 
 # --- VISUALIZATION ENGINE ---
 def create_dashboard(user_results, df_benchmarks):
-    """
-    Creates a 3x3 Grid Dashboard optimized for Dark Background.
-    Displays Y-axis labels ONLY on the first column.
-    """
     fig, axes = plt.subplots(3, 3, figsize=(18, 12))
     fig.patch.set_alpha(0.0)
     
-    # Reduced wspace since we removed inner labels
     plt.subplots_adjust(wspace=0.15, hspace=0.6)
     
-    # MASTER CLASS ORDER: Ensures alignment across all plots
     if df_benchmarks is not None:
         master_classes = sorted([c for c in CLASS_COLORS.keys() if c in df_benchmarks['Class'].unique()])
     else:
@@ -159,7 +169,6 @@ def create_dashboard(user_results, df_benchmarks):
             indicator = INDICATOR_GRID[row_idx][col_idx]
             meta = INDICATOR_META[indicator]
             
-            # 1. Prepare Data aligned to Master Classes
             data_to_plot = []
             positions_to_plot = []
             all_vals = [user_results.get(indicator, 0)]
@@ -169,16 +178,14 @@ def create_dashboard(user_results, df_benchmarks):
                     subset = df_benchmarks[df_benchmarks['Class'] == cls][indicator].dropna()
                     if not subset.empty:
                         data_to_plot.append(subset.values)
-                        positions_to_plot.append(i) # Store correct index
+                        positions_to_plot.append(i)
                         all_vals.extend(subset.values)
             
-            # 2. Scale
             pos_vals = [v for v in all_vals if v > 0]
             if not pos_vals: pos_vals = [0.1]
             vmin, vmax = min(pos_vals), max(pos_vals)
             use_log = (vmax / vmin > 50)
                 
-            # 3. Plot Boxplots
             if data_to_plot:
                 bp = ax.boxplot(data_to_plot, positions=positions_to_plot, vert=False, 
                                 patch_artist=True, widths=0.6,
@@ -188,28 +195,21 @@ def create_dashboard(user_results, df_benchmarks):
                                 capprops=dict(color='#fafafa', linewidth=1),
                                 medianprops=dict(color='white', linewidth=2))
                 
-                # Apply colors based on the class at that position
                 for i, box in enumerate(bp['boxes']):
-                    # Retrieve original class name using the position index
                     cls_idx = positions_to_plot[i]
                     cls_name = master_classes[cls_idx]
                     box.set_facecolor(CLASS_COLORS[cls_name])
                     box.set_alpha(0.8)
             
-            # 4. User Line
             user_val = user_results.get(indicator, 0)
             ax.axvline(user_val, color=USER_COLOR, linewidth=3, linestyle='-', zorder=10)
             
-            # 5. Styling & Labels
             ax.set_yticks(y_indices)
-            
-            # LOGIC: Show labels only on column 0
             if col_idx == 0:
                 ax.set_yticklabels(master_classes, color='#eeeeee', fontsize=11, fontweight='bold')
             else:
-                ax.set_yticklabels([]) # Hide labels
+                ax.set_yticklabels([]) 
             
-            # Spines
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             ax.spines['left'].set_visible(False)
@@ -229,7 +229,7 @@ def create_dashboard(user_results, df_benchmarks):
                  margin = (vmax - vmin) * 0.1
                  ax.set_xlim(min(all_vals) - margin, max(all_vals) + margin)
 
-    # 6. Global Legend
+    # Legend
     handles = []
     for cls in master_classes:
         patch = mpatches.Patch(color=CLASS_COLORS[cls], label=cls, alpha=0.8)
@@ -261,15 +261,21 @@ if df_elements is None:
     st.error("Data files not found in data/ folder.")
     st.stop()
 
-# --- INPUT ---
+# --- INPUT SECTION ---
 st.markdown("### 1. Composition Input")
 c1, c2 = st.columns([2, 3])
 with c1:
     formula = st.text_input("Formula", value="Co20Cr20Fe40Ni20", help="Ex: Al10Co20Cr20Fe40Ni10")
+    
+    # --- VALIDATION & PARSING (CRITICAL STEP) ---
     comp, err = parse_formula(formula)
+    
     if err:
+        # IF ERROR: Show red message and STOP execution immediately.
         st.error(err)
-        st.stop()
+        st.stop() # No further code is executed
+        
+    # If we pass here, input is valid
     mass_fractions = convert_at_to_wt(comp)
     user_results = calculate_impacts(mass_fractions, df_elements)
     
@@ -277,7 +283,7 @@ with c1:
     if abs(total - 100) > 0.1:
         st.info(f"Input sum: {total:.1f}% (Normalized to 100%)")
 
-# --- DASHBOARD ---
+# --- DASHBOARD SECTION ---
 st.divider()
 st.markdown("### 2. Sustainability Dashboard")
 
