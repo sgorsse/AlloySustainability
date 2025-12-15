@@ -102,16 +102,13 @@ def parse_formula(formula):
     if not formula or not formula.strip():
         return None, "Please enter a valid alloy formula."
 
-    # 1. Regex parsing
     pattern = re.findall(r"([A-Z][a-z]?)([0-9]*\.?[0-9]*)", formula)
     
-    # Check if regex actually found anything
     if not pattern:
         return None, "Invalid format. Use standard notation like 'Co20Cr20'."
 
     composition = {}
     for el, qty in pattern:
-        # 2. Check Supported Elements
         if el not in ATOMIC_MASSES:
             return None, f"⛔ Element '{el}' is not supported. Compatible elements: {SUPPORTED_ELEMENTS_STR}."
         
@@ -151,7 +148,6 @@ def calculate_impacts(mass_fractions, data_df):
 def create_dashboard(user_results, df_benchmarks):
     fig, axes = plt.subplots(3, 3, figsize=(18, 12))
     fig.patch.set_alpha(0.0)
-    
     plt.subplots_adjust(wspace=0.15, hspace=0.6)
     
     if df_benchmarks is not None:
@@ -229,7 +225,6 @@ def create_dashboard(user_results, df_benchmarks):
                  margin = (vmax - vmin) * 0.1
                  ax.set_xlim(min(all_vals) - margin, max(all_vals) + margin)
 
-    # Legend
     handles = []
     for cls in master_classes:
         patch = mpatches.Patch(color=CLASS_COLORS[cls], label=cls, alpha=0.8)
@@ -243,7 +238,6 @@ def create_dashboard(user_results, df_benchmarks):
     for text in leg.get_texts():
         text.set_color('#fafafa')
     
-    # Category Labels
     fig.text(0.01, 0.78, "Economic", rotation=90, va='center', ha='left', fontsize=14, fontweight='bold', color=INDICATOR_META['Mass price (USD/kg)']['color'])
     fig.text(0.01, 0.50, "Environment", rotation=90, va='center', ha='left', fontsize=14, fontweight='bold', color=INDICATOR_META['Embodied energy (MJ/kg)']['color'])
     fig.text(0.01, 0.22, "Societal", rotation=90, va='center', ha='left', fontsize=14, fontweight='bold', color=INDICATOR_META['Human health damage']['color'])
@@ -267,21 +261,22 @@ c1, c2 = st.columns([2, 3])
 with c1:
     formula = st.text_input("Formula", value="Co20Cr20Fe40Ni20", help="Ex: Al10Co20Cr20Fe40Ni10")
     
-    # --- VALIDATION & PARSING (CRITICAL STEP) ---
+    # --- 1. Syntax & Element Validation ---
     comp, err = parse_formula(formula)
-    
     if err:
-        # IF ERROR: Show red message and STOP execution immediately.
         st.error(err)
-        st.stop() # No further code is executed
+        st.stop()
+    
+    # --- 2. Percentage Sum Validation ---
+    total_at = sum(comp.values())
+    # Tolerance of 0.5 to allow for minor float imprecision (e.g. 33.33*3)
+    if abs(total_at - 100.0) > 0.5:
+        st.error(f"⛔ Total atomic percentage is {total_at:.2f}% instead of 100%. Please adjust your formula.")
+        st.stop()
         
-    # If we pass here, input is valid
+    # If valid:
     mass_fractions = convert_at_to_wt(comp)
     user_results = calculate_impacts(mass_fractions, df_elements)
-    
-    total = sum(comp.values())
-    if abs(total - 100) > 0.1:
-        st.info(f"Input sum: {total:.1f}% (Normalized to 100%)")
 
 # --- DASHBOARD SECTION ---
 st.divider()
