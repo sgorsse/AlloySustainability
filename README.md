@@ -117,7 +117,7 @@ S. Gorsse, T. Langlois, A.-C. Yeh and M. R. Barnett <br>
 Sci. Data 12 (2025) 288 <br>
 [https://doi.org/10.1038/s41597-025-04568-x](https://doi.org/10.1038/s41597-025-04568-x)
 
-S. Gorsse, T. Langlois, and M. R. Barnett <br>
+M. R. Barnett and S. Gorsse <br>
 *Sustainability of High Entropy Alloys and Do They Have a Place in a Circular Economy?* <br>
-Metall. Mater. Trans. A (2025) <br>
+Metall. Mater. Trans. A 56 (2025) 4249 <br>
 https://doi.org/10.1007/s11661-025-07928-9
