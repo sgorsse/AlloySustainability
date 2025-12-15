@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
+import re
 import os
 
 # --- PAGE CONFIGURATION ---
@@ -11,8 +13,8 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CONSTANTS & DATA ---
-# Atomic masses (g/mol) for the 18 elements
+# --- CONSTANTS ---
+# Atomic masses (g/mol)
 ATOMIC_MASSES = {
     'Al': 26.9815, 'Co': 58.9331, 'Cr': 51.9961, 'Cu': 63.546, 'Fe': 55.845,
     'Hf': 178.49, 'Mn': 54.938, 'Mo': 95.95, 'Nb': 92.906, 'Ni': 58.6934,
@@ -20,32 +22,81 @@ ATOMIC_MASSES = {
     'V': 50.9415, 'W': 183.84, 'Zr': 91.224
 }
 
-# Categorization of indicators for better visualization
-INDICATOR_CATEGORIES = {
-    'Mass price (USD/kg)': 'Economic',
-    'Supply risk': 'Economic',
-    'Normalized vulnerability to supply restriction': 'Economic',
-    'Embodied energy (MJ/kg)': 'Environmental',
-    'Rock to metal ratio (kg/kg)': 'Environmental',
-    'Water usage (l/kg)': 'Environmental',
-    'Human health damage': 'Societal',
-    'Human rights pressure': 'Societal',
-    'Labor rights pressure': 'Societal'
+# Categorization and Units
+INDICATOR_INFO = {
+    'Mass price (USD/kg)': {'cat': 'Economic', 'unit': 'USD/kg'},
+    'Supply risk': {'cat': 'Economic', 'unit': 'Index (0-1)'},
+    'Normalized vulnerability to supply restriction': {'cat': 'Economic', 'unit': 'Index'},
+    'Embodied energy (MJ/kg)': {'cat': 'Environmental', 'unit': 'MJ/kg'},
+    'Rock to metal ratio (kg/kg)': {'cat': 'Environmental', 'unit': 'kg/kg'},
+    'Water usage (l/kg)': {'cat': 'Environmental', 'unit': 'l/kg'},
+    'Human health damage': {'cat': 'Societal', 'unit': 'Points'},
+    'Human rights pressure': {'cat': 'Societal', 'unit': 'Points'},
+    'Labor rights pressure': {'cat': 'Societal', 'unit': 'Points'}
 }
 
+# --- DATA LOADING ---
 @st.cache_data
-def load_data(filepath):
-    """Loads and cleans the element indicator data."""
+def load_data():
+    """Loads element data and benchmark datasets."""
+    data_path = "data"
+    
+    # 1. Load Elements Data
     try:
-        df = pd.read_csv(filepath)
-        # Rename column to match expected logic if necessary
-        df = df.rename(columns={'Raw material price (USD/kg)': 'Mass price (USD/kg)'})
-        df = df.set_index('elements')
-        return df
+        df_elements = pd.read_csv(os.path.join(data_path, "gen_18element_imputed_v202412.csv"))
+        df_elements = df_elements.rename(columns={'Raw material price (USD/kg)': 'Mass price (USD/kg)'})
+        df_elements = df_elements.set_index('elements')
     except FileNotFoundError:
-        return None
+        st.error("File 'gen_18element_imputed_v202412.csv' not found in data/ folder.")
+        return None, None
 
-# --- HELPER FUNCTIONS ---
+    # 2. Load Benchmarks
+    benchmarks = []
+    try:
+        # Load Ni/HEAs benchmarks
+        df_ni = pd.read_csv(os.path.join(data_path, "gen_HTHEAs_vs_Ni_df.csv"), sep=';')
+        benchmarks.append(df_ni)
+        
+        # Load Fe/HEAs benchmarks
+        df_fe = pd.read_csv(os.path.join(data_path, "gen_RTHEAs_vs_Fe_df.csv"), sep=';')
+        benchmarks.append(df_fe)
+        
+        df_bench = pd.concat(benchmarks, ignore_index=True)
+        
+        # Map disparate column names if necessary (Files seem consistent on indicators based on inspection)
+        # Calculate mean values per Class for plotting
+        indicators = list(INDICATOR_INFO.keys())
+        # Filter only existing columns
+        valid_indicators = [col for col in indicators if col in df_bench.columns]
+        
+        df_bench_grouped = df_bench.groupby('Class')[valid_indicators].mean().reset_index()
+        
+    except FileNotFoundError:
+        st.warning("Benchmark files not found. Comparison will be disabled.")
+        df_bench_grouped = None
+
+    return df_elements, df_bench_grouped
+
+# --- LOGIC ---
+def parse_formula(formula):
+    """Parses chemical formula string (e.g., 'Co20Cr20') into a dictionary."""
+    # Regex to find Element and Number. Handles integers and floats.
+    # If no number matches, assumes 1.0 (handled by logic below if we wanted, but strict regex here)
+    pattern = re.findall(r"([A-Z][a-z]?)([0-9]*\.?[0-9]*)", formula)
+    
+    composition = {}
+    for el, qty in pattern:
+        if el not in ATOMIC_MASSES:
+            return None, f"Element '{el}' is not supported (only 18 specific elements)."
+        
+        amount = float(qty) if qty else 1.0
+        composition[el] = composition.get(el, 0) + amount
+        
+    if not composition:
+        return None, "Invalid format. Use standard notation like 'Co20Cr20Fe40Ni20'."
+        
+    return composition, None
+
 def convert_at_to_wt(composition_at):
     """Converts atomic percentage dictionary to mass fraction series."""
     mass_dict = {}
@@ -59,138 +110,164 @@ def convert_at_to_wt(composition_at):
     if total_mass == 0:
         return pd.Series()
     
-    # Return mass fractions (0-1 range)
     return pd.Series({k: v / total_mass for k, v in mass_dict.items()})
 
 def calculate_impacts(mass_fractions, data_df):
-    """Calculates the 9 indicators based on mass fractions."""
+    """Calculates the indicators based on mass fractions."""
     results = {}
-    
-    # Align mass fractions with the full 18 elements list (filling missing with 0)
     full_wt_vector = pd.Series(0.0, index=data_df.index)
     full_wt_vector.update(mass_fractions)
     
-    # 1. Standard Weighted Average Calculations
-    weighted_indicators = [col for col in data_df.columns if col != 'Supply risk']
-    for ind in weighted_indicators:
-        results[ind] = full_wt_vector.dot(data_df[ind])
-        
-    # 2. Specific 'Supply Risk' Calculation (from Notebook logic)
-    # Formula: 1 - Product(1 - fraction_i * risk_i)
-    if 'Supply risk' in data_df.columns:
-        risk_vector = data_df['Supply risk']
-        risk_contrib = 1 - (full_wt_vector * risk_vector)
-        # Check if the product logic is intended or weighted sum. 
-        # Using notebook logic: 1 - prod(1 - x*R)
-        results['Supply risk'] = 1 - risk_contrib.prod()
-        
-    return pd.DataFrame([results]).T.reset_index()
+    for ind in INDICATOR_INFO.keys():
+        if ind == 'Supply risk':
+            # Specific formula: 1 - Product(1 - fraction * risk)
+            risk_vector = data_df['Supply risk']
+            risk_contrib = 1 - (full_wt_vector * risk_vector)
+            results[ind] = 1 - risk_contrib.prod()
+        else:
+            # Weighted average
+            if ind in data_df.columns:
+                results[ind] = full_wt_vector.dot(data_df[ind])
+            else:
+                results[ind] = 0.0
+                
+    return results
 
-# --- MAIN APP LAYOUT ---
-
+# --- APP LAYOUT ---
 st.title("🌍 Alloy Sustainability Calculator")
-st.markdown("""
-This tool calculates the **economic, environmental, and societal impacts** of your alloy design.  
-Enter the composition in **Atomic Percent (%at)** below.
-""")
+st.markdown("Compare the **Economic, Environmental, and Societal impacts** of your alloy against industry standards.")
 
-# Load Data from 'data' folder
-DATA_FILE = os.path.join("data", "gen_18element_imputed_v202412.csv")
-data = load_data(DATA_FILE)
-
-if data is None:
-    st.error(f"Error: The data file was not found at `{DATA_FILE}`. Please ensure the 'data' folder exists and contains the CSV file.")
+# Load Data
+df_elements, df_benchmarks = load_data()
+if df_elements is None:
     st.stop()
 
-# Sidebar: Input
-st.sidebar.header("1. Define Composition")
-st.sidebar.markdown("Select elements and specify their Atomic %.")
+# 1. INPUT SECTION
+with st.container():
+    st.subheader("1. Alloy Composition")
+    c1, c2 = st.columns([2, 1])
+    
+    with c1:
+        formula_input = st.text_input(
+            "Enter Alloy Formula (Atomic %)", 
+            value="Co20Cr20Fe40Ni20",
+            help="Example: Co20Cr20Fe40Ni20. Elements must be among: " + ", ".join(sorted(ATOMIC_MASSES.keys()))
+        )
+    
+    # Parse and Calculate
+    comp_at, error_msg = parse_formula(formula_input)
+    
+    if error_msg:
+        st.error(error_msg)
+        st.stop()
+        
+    # Validate Total
+    total_at = sum(comp_at.values())
+    if abs(total_at - 100.0) > 0.1 and total_at != 0:
+        st.warning(f"Note: Total atomic % is {total_at:.1f}%. It will be normalized to 100% for calculation.")
 
-available_elements = sorted(list(data.index))
-selected_elements = st.sidebar.multiselect("Select Elements", available_elements, default=['Fe', 'Ni', 'Cr'])
+    mass_fractions = convert_at_to_wt(comp_at)
+    user_impacts = calculate_impacts(mass_fractions, df_elements)
 
-composition_at = {}
-current_total_at = 0.0
+# 2. VISUALIZATION SECTION
+st.divider()
+st.subheader("2. Sustainability Profile & Benchmarking")
 
-if selected_elements:
-    st.sidebar.markdown("---")
-    for el in selected_elements:
-        # Default value logic to be helpful
-        default_val = 100.0 / len(selected_elements)
-        val = st.sidebar.number_input(f"{el} (at%)", min_value=0.0, max_value=100.0, value=default_val, step=0.1)
-        composition_at[el] = val
-        current_total_at += val
+# Prepare Data for Plotting
+# User Data
+plot_data = []
+for ind, val in user_impacts.items():
+    meta = INDICATOR_INFO.get(ind, {})
+    plot_data.append({
+        'Indicator': ind,
+        'Value': val,
+        'Type': 'Your Alloy',
+        'Category': meta.get('cat', 'Other'),
+        'Unit': meta.get('unit', '')
+    })
 
-    st.sidebar.markdown("---")
-    if abs(current_total_at - 100.0) > 0.01:
-        st.sidebar.warning(f"Total: {current_total_at:.1f}% (Normalized to 100% for calculation)")
-    else:
-        st.sidebar.success(f"Total: {current_total_at:.1f}%")
-else:
-    st.info("Please select at least one element in the sidebar.")
-    st.stop()
+# Benchmark Data
+if df_benchmarks is not None:
+    for _, row in df_benchmarks.iterrows():
+        cls_name = row['Class']
+        for ind in INDICATOR_INFO.keys():
+            if ind in row:
+                meta = INDICATOR_INFO.get(ind, {})
+                plot_data.append({
+                    'Indicator': ind,
+                    'Value': row[ind],
+                    'Type': cls_name, # e.g., "Steels", "Ni superalloys"
+                    'Category': meta.get('cat', 'Other'),
+                    'Unit': meta.get('unit', '')
+                })
 
-# Main Logic
-mass_fractions = convert_at_to_wt(composition_at)
-impacts_df = calculate_impacts(mass_fractions, data)
-impacts_df.columns = ['Indicator', 'Value']
-impacts_df['Category'] = impacts_df['Indicator'].map(INDICATOR_CATEGORIES)
+df_plot = pd.DataFrame(plot_data)
 
-# Sort for consistent display
-impacts_df = impacts_df.sort_values(by=['Category', 'Indicator'])
+# Sort for tidy plotting
+df_plot = df_plot.sort_values(by=['Category', 'Indicator'])
 
-# --- DISPLAY RESULTS ---
+# Create Plot
+fig = px.bar(
+    df_plot,
+    x="Value",
+    y="Indicator",
+    color="Type",
+    barmode="group",
+    orientation='h',
+    text_auto='.2s',
+    height=800,
+    color_discrete_map={
+        "Your Alloy": "#E63946",  # Red for visibility
+        "Steels": "#A8DADC",
+        "Ni superalloys": "#457B9D",
+        "FCC HEAs": "#1D3557",
+        "BCC-(R)HEAs & HESAs": "#F1FAEE"
+    }
+)
 
-st.header("2. Sustainability Profile")
+fig.update_layout(
+    xaxis_type="log",
+    xaxis_title="Impact Value (Log Scale)",
+    yaxis_title="",
+    legend_title="Alloy Class",
+    font=dict(size=14),
+    margin=dict(l=250) # More space for long labels
+)
 
-# Metric Cards
+# Update y-axis labels to include units if desired, or keep them clean
+# Adding units to hover text is automatic
+st.plotly_chart(fig, use_container_width=True)
+
+
+# 3. DETAILED METRICS
+st.divider()
+st.subheader("3. Detailed Metrics")
+
 cols = st.columns(3)
 categories = ['Economic', 'Environmental', 'Societal']
-colors = ['blue', 'green', 'orange']
 
 for i, cat in enumerate(categories):
     with cols[i]:
-        st.subheader(f"{cat} Impact")
-        cat_data = impacts_df[impacts_df['Category'] == cat]
-        for _, row in cat_data.iterrows():
-            # Format value nicely
-            val = row['Value']
-            fmt = "{:.2f}" if val < 100 else "{:.0f}"
-            st.metric(label=row['Indicator'].split('(')[0].strip(), value=fmt.format(val))
+        st.markdown(f"#### {cat}")
+        # Filter user data for this category
+        cat_impacts = {k:v for k,v in user_impacts.items() if INDICATOR_INFO[k]['cat'] == cat}
+        
+        for name, val in cat_impacts.items():
+            unit = INDICATOR_INFO[name]['unit']
+            # Clean name for display
+            short_name = name.split('(')[0].strip()
+            
+            # Formatting
+            if val < 1:
+                fmt_val = f"{val:.3f}"
+            elif val < 100:
+                fmt_val = f"{val:.1f}"
+            else:
+                fmt_val = f"{val:.0f}"
+                
+            st.metric(label=short_name, value=f"{fmt_val} {unit}")
 
-# Visualization
-st.markdown("### Indicator Overview")
-
-fig = px.bar(
-    impacts_df, 
-    x='Value', 
-    y='Indicator', 
-    color='Category',
-    orientation='h',
-    text_auto='.2s',
-    title="Sustainability Indicators (Log Scale)",
-    color_discrete_map={'Economic': '#1f77b4', 'Environmental': '#2ca02c', 'Societal': '#ff7f0e'}
-)
-
-# Use Log scale because Price ($) and Supply Risk (0-1) differ by orders of magnitude
-fig.update_layout(
-    xaxis_type="log",
-    xaxis_title="Value (Log Scale)",
-    yaxis_title="",
-    height=500,
-    showlegend=True
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-# Data Table Expander
-with st.expander("View Detailed Data & Mass Composition"):
-    c1, c2 = st.columns(2)
-    with c1:
-        st.write("**Calculated Indicators**")
-        st.dataframe(impacts_df.style.format({"Value": "{:.4f}"}))
-    with c2:
-        st.write("**Mass Fractions (Calculated from at%)**")
-        mass_df = mass_fractions.to_frame(name="Mass Fraction")
-        mass_df['Mass %'] = mass_df['Mass Fraction'] * 100
-        st.dataframe(mass_df.style.format({"Mass Fraction": "{:.4f}", "Mass %": "{:.2f}%"}))
+# Footer Data Table
+with st.expander("Show Raw Data"):
+    st.write("Values for **Your Alloy**:")
+    st.dataframe(pd.DataFrame([user_impacts]))
