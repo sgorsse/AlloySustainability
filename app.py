@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import matplotlib.ticker as ticker
 import re
 import os
 
@@ -11,8 +10,23 @@ import os
 st.set_page_config(
     page_title="Alloy Sustainability Calculator",
     page_icon="🌍",
-    layout="centered"
+    layout="wide"  # Layout 'Wide' pour profiter de l'espace grille
 )
+
+# --- STYLING MATPLOTLIB ---
+# Configuration globale pour un rendu "Publication Quality"
+plt.rcParams.update({
+    'font.family': 'sans-serif',
+    'font.sans-serif': ['Arial', 'DejaVu Sans'],
+    'font.size': 10,
+    'axes.linewidth': 0.8,
+    'axes.titlesize': 12,
+    'axes.titleweight': 'bold',
+    'xtick.labelsize': 9,
+    'ytick.labelsize': 9,
+    'legend.fontsize': 10,
+    'figure.titlesize': 16
+})
 
 # --- CONSTANTS ---
 ATOMIC_MASSES = {
@@ -24,33 +38,42 @@ ATOMIC_MASSES = {
 
 SUPPORTED_ELEMENTS_STR = ", ".join(sorted(ATOMIC_MASSES.keys()))
 
-INDICATOR_INFO = {
-    'Mass price (USD/kg)': {'cat': 'Economic', 'unit': 'USD/kg'},
-    'Supply risk': {'cat': 'Economic', 'unit': ''},
-    'Normalized vulnerability to supply restriction': {'cat': 'Economic', 'unit': ''},
-    'Embodied energy (MJ/kg)': {'cat': 'Environmental', 'unit': 'MJ/kg'},
-    'Rock to metal ratio (kg/kg)': {'cat': 'Environmental', 'unit': 'kg/kg'},
-    'Water usage (l/kg)': {'cat': 'Environmental', 'unit': 'l/kg'},
-    'Human health damage': {'cat': 'Societal', 'unit': ''},
-    'Human rights pressure': {'cat': 'Societal', 'unit': ''},
-    'Labor rights pressure': {'cat': 'Societal', 'unit': ''}
+# Structure des indicateurs pour la grille 3x3
+INDICATOR_GRID = [
+    # Row 1: Economic
+    ['Mass price (USD/kg)', 'Supply risk', 'Normalized vulnerability to supply restriction'],
+    # Row 2: Environmental
+    ['Embodied energy (MJ/kg)', 'Rock to metal ratio (kg/kg)', 'Water usage (l/kg)'],
+    # Row 3: Societal
+    ['Human health damage', 'Human rights pressure', 'Labor rights pressure']
+]
+
+# Meta-data pour l'affichage
+INDICATOR_META = {
+    'Mass price (USD/kg)': {'unit': 'USD/kg', 'color': '#1f77b4'}, # Blue
+    'Supply risk': {'unit': '', 'color': '#1f77b4'},
+    'Normalized vulnerability to supply restriction': {'unit': '', 'color': '#1f77b4'},
+    'Embodied energy (MJ/kg)': {'unit': 'MJ/kg', 'color': '#2ca02c'}, # Green
+    'Rock to metal ratio (kg/kg)': {'unit': 'kg/kg', 'color': '#2ca02c'},
+    'Water usage (l/kg)': {'unit': 'l/kg', 'color': '#2ca02c'},
+    'Human health damage': {'unit': '', 'color': '#ff7f0e'}, # Orange
+    'Human rights pressure': {'unit': '', 'color': '#ff7f0e'},
+    'Labor rights pressure': {'unit': '', 'color': '#ff7f0e'}
 }
 
-# Professional Color Palette
+# Couleurs des familles (Palette douce et professionnelle)
 CLASS_COLORS = {
-    'BCC-(R)HEAs & HESAs': '#4575b4', # Professional Blue
-    'FCC HEAs': '#74add1',            # Light Blue
-    'Ni superalloys': '#fdae61',      # Soft Orange
-    'Steels': '#abd9e9',              # Very Light Blue/Grey
-    'Evaluated alloy': '#d73027'      # Strong Red
+    'Steels': '#bdc3c7',              # Light Grey
+    'Ni superalloys': '#f39c12',      # Orange
+    'FCC HEAs': '#2ecc71',            # Green
+    'BCC-(R)HEAs & HESAs': '#3498db'  # Blue
 }
+USER_COLOR = '#e74c3c' # Red
 
 # --- DATA LOADING ---
 @st.cache_data
 def load_data():
-    """Loads element data and FULL benchmark datasets (no pre-aggregation)."""
     data_path = "data"
-    
     try:
         df_elements = pd.read_csv(os.path.join(data_path, "gen_18element_imputed_v202412.csv"))
         df_elements = df_elements.rename(columns={'Raw material price (USD/kg)': 'Mass price (USD/kg)'})
@@ -77,8 +100,7 @@ def parse_formula(formula):
     pattern = re.findall(r"([A-Z][a-z]?)([0-9]*\.?[0-9]*)", formula)
     composition = {}
     for el, qty in pattern:
-        if el not in ATOMIC_MASSES:
-            return None, f"Element '{el}' not supported."
+        if el not in ATOMIC_MASSES: return None, f"Element '{el}' not supported."
         amount = float(qty) if qty else 1.0
         composition[el] = composition.get(el, 0) + amount
     if not composition: return None, "Invalid format."
@@ -99,11 +121,9 @@ def calculate_impacts(mass_fractions, data_df):
     full_wt_vector = pd.Series(0.0, index=data_df.index)
     full_wt_vector.update(mass_fractions)
     
-    for ind in INDICATOR_INFO.keys():
+    for ind in INDICATOR_META.keys():
         if ind == 'Supply risk':
             risk_vector = data_df['Supply risk']
-            # Logic: 1 - Prod(1 - risk_i * fraction_i)
-            # Note: This is a specific aggregation model provided in user context
             risk_contrib = 1 - (full_wt_vector * risk_vector)
             results[ind] = 1 - risk_contrib.prod()
         else:
@@ -113,142 +133,145 @@ def calculate_impacts(mass_fractions, data_df):
                 results[ind] = 0.0
     return results
 
-# --- PLOTTING (HIGH AESTHETIC) ---
-def plot_comparison(user_results, df_benchmarks):
-    indicators = list(INDICATOR_INFO.keys())
+# --- VISUALIZATION ENGINE ---
+def create_dashboard(user_results, df_benchmarks):
+    """
+    Creates a 3x3 Grid Dashboard with Violin Plots.
+    """
+    fig, axes = plt.subplots(3, 3, figsize=(18, 12))
+    plt.subplots_adjust(wspace=0.3, hspace=0.5)
     
-    # 1. Setup Figure
-    # Taller figure to give breathing room
-    fig, axes = plt.subplots(len(indicators), 1, figsize=(9, 14), sharey=False)
+    # Flatten axes for easy iteration if needed, but we use nested loops here
     
-    # Adjust spacing
-    plt.subplots_adjust(hspace=0.7) 
+    benchmark_classes = sorted([c for c in CLASS_COLORS.keys() if c in df_benchmarks['Class'].unique()])
     
-    legend_artists = {} # To store handles for custom legend
-
-    for idx, indicator in enumerate(indicators):
-        ax = axes[idx]
-        
-        # 2. Data Preparation for Scaling
-        all_values = [user_results.get(indicator, 0)]
-        if df_benchmarks is not None and indicator in df_benchmarks.columns:
-            # Filter valid data
-            valid_series = df_benchmarks[indicator].dropna()
-            valid_series = valid_series[valid_series > 0] # Filter 0 for Log scale safety
-            if not valid_series.empty:
-                all_values.extend(valid_series.tolist())
-        
-        # Determine Scale (Log if max/min > 50)
-        use_log = False
-        if len(all_values) > 1:
-            vmin, vmax = min(all_values), max(all_values)
-            if vmin > 0 and (vmax / vmin > 50):
-                use_log = True
-        
-        # 3. Plot Benchmarks (IQR Band + Median Line)
-        if df_benchmarks is not None and indicator in df_benchmarks.columns:
-            for cls_name in CLASS_COLORS:
-                if cls_name == 'Evaluated alloy': continue
-                
-                subset = df_benchmarks[df_benchmarks['Class'] == cls_name][indicator].dropna()
-                if subset.empty: continue
-                
-                # Statistics
-                median = subset.median()
-                q25 = subset.quantile(0.25)
-                q75 = subset.quantile(0.75)
-                
-                color = CLASS_COLORS.get(cls_name, 'grey')
-                
-                # A. IQR Band (The "Body" of the distribution)
-                # We draw a rectangle that spans the height of the plot (ylim 0 to 1)
-                # Using axvspan for full vertical coverage within the subplot
-                rect = ax.axvspan(q25, q75, ymin=0.1, ymax=0.9, 
-                                  color=color, alpha=0.25, lw=0)
-                
-                # B. Median Line (The "Center")
-                line = ax.axvline(median, ymin=0.1, ymax=0.9, 
-                                  color=color, linewidth=2.5, alpha=0.9, zorder=2)
-                
-                if cls_name not in legend_artists:
-                    legend_artists[cls_name] = line
-
-        # 4. Plot User Alloy
-        user_val = user_results.get(indicator, 0)
-        # Add a white halo for contrast
-        ax.scatter(user_val, 0.5, s=200, color='white', zorder=4) 
-        dot = ax.scatter(user_val, 0.5, s=120, color=CLASS_COLORS['Evaluated alloy'], 
-                         marker='o', edgecolors='black', linewidth=1.5, zorder=5)
-        
-        if 'Evaluated alloy' not in legend_artists:
-            legend_artists['Evaluated alloy'] = dot
-
-        # 5. Styling & Axis
-        ax.set_ylim(0, 1)
-        ax.set_yticks([]) # No Y axis ticks
-        
-        # Spines
-        ax.spines['left'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        ax.spines['bottom'].set_color('#333333')
-        ax.spines['bottom'].set_linewidth(1)
-
-        # Title formatting
-        meta = INDICATOR_INFO[indicator]
-        unit_text = f" ({meta['unit']})" if meta['unit'] else ""
-        title_text = f"{indicator.split('(')[0].strip()}"
-        
-        # Left-aligned title inside the plot area or just above
-        ax.text(0, 1.05, title_text + unit_text, transform=ax.transAxes, 
-                fontsize=11, fontweight='bold', color='#2c3e50', ha='left')
-
-        # Grid
-        ax.grid(True, axis='x', color='#e0e0e0', linestyle='--', linewidth=0.5)
-        ax.set_axisbelow(True)
-
-        # Apply Scale & Margins
-        if use_log:
-            ax.set_xscale('log')
-            # Custom formatter for cleaner log labels
-            ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: '{:g}'.format(y)))
-        
-        # Dynamic x-limits with padding
-        if all_values:
-            vmin, vmax = min(all_values), max(all_values)
-            # Avoid 0 in log
-            if use_log and vmin <= 0: vmin = min([v for v in all_values if v > 0] or [0.1])
+    for row_idx in range(3):
+        for col_idx in range(3):
+            ax = axes[row_idx, col_idx]
+            indicator = INDICATOR_GRID[row_idx][col_idx]
+            meta = INDICATOR_META[indicator]
             
-            # Add 10% padding
+            # 1. Prepare Data
+            data_per_class = []
+            valid_classes = []
+            
+            all_vals = [user_results.get(indicator, 0)] # Start with user val for scale
+            
+            if df_benchmarks is not None and indicator in df_benchmarks.columns:
+                for cls in benchmark_classes:
+                    subset = df_benchmarks[df_benchmarks['Class'] == cls][indicator].dropna()
+                    if not subset.empty:
+                        data_per_class.append(subset.values)
+                        valid_classes.append(cls)
+                        all_vals.extend(subset.values)
+            
+            # 2. Determine Scale (Log vs Linear)
+            # Filter positive values for log check
+            pos_vals = [v for v in all_vals if v > 0]
+            if not pos_vals: pos_vals = [0.1]
+            vmin, vmax = min(pos_vals), max(pos_vals)
+            
+            use_log = False
+            if vmax / vmin > 50:
+                use_log = True
+                
+            # 3. Plot Violins (Benchmarks)
+            # Note: Violinplot handles log data poorly natively in matplotlib (KDE issues).
+            # We will plot on linear scale but transform data if needed, or simply use boxplot if log is extreme.
+            # However, simpler approach for stability: Use Boxplot for technical rigour on log scales, 
+            # or Violin on linear data. Given the range (e.g. Price), Log is mandatory.
+            # Let's use simple Horizontal Boxplots which are very robust and clean.
+            
+            # Position classes on Y axis: 0, 1, 2...
+            positions = np.arange(len(valid_classes))
+            
+            if valid_classes:
+                # Create the boxplot
+                # vert=False -> Horizontal
+                bp = ax.boxplot(data_per_class, positions=positions, vert=False, 
+                                patch_artist=True, widths=0.6,
+                                showfliers=False, # Hide outliers for cleaner look
+                                boxprops=dict(linewidth=0), # No border on box fill
+                                medianprops=dict(color='white', linewidth=2))
+                
+                # Color the boxes
+                for patch, cls in zip(bp['boxes'], valid_classes):
+                    patch.set_facecolor(CLASS_COLORS[cls])
+                    patch.set_alpha(0.7)
+            
+            # 4. Plot User Alloy
+            user_val = user_results.get(indicator, 0)
+            
+            # Add a vertical line for User Value
+            # ax.axvline(...) draws across the whole plot
+            ax.axvline(user_val, color=USER_COLOR, linewidth=2.5, linestyle='-', zorder=10)
+            
+            # Add a small text annotation for the user value on top of the line
+            # Determine position: slightly above the top box
+            top_y = len(valid_classes) - 0.5
+            
+            # 5. Styling
+            ax.set_yticks(positions)
+            ax.set_yticklabels(valid_classes)
+            
+            # Remove spines
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['bottom'].set_color('#dddddd')
+            
+            # Grid
+            ax.grid(True, axis='x', color='#eeeeee', linestyle='--')
+            
+            # Title
+            # Clean title
+            clean_title = indicator.split('(')[0].strip()
+            unit_str = f" ({meta['unit']})" if meta['unit'] else ""
+            
+            # Title color matches category
+            ax.set_title(f"{clean_title}{unit_str}", 
+                         color=meta['color'], loc='left', pad=10)
+            
+            # Scale
             if use_log:
-                log_span = np.log10(vmax) - np.log10(vmin)
-                if log_span == 0: log_span = 1
-                ax.set_xlim(10**(np.log10(vmin) - 0.1*log_span), 10**(np.log10(vmax) + 0.1*log_span))
+                ax.set_xscale('log')
+                # Add some padding to x-limits
+                if vmin > 0:
+                    ax.set_xlim(vmin * 0.5, vmax * 2)
             else:
-                span = vmax - vmin
-                if span == 0: span = vmax * 0.1 if vmax != 0 else 1.0
-                ax.set_xlim(vmin - 0.1*span, vmax + 0.1*span)
+                 # Add 5% padding
+                 margin = (vmax - vmin) * 0.1
+                 ax.set_xlim(min(all_vals) - margin, max(all_vals) + margin)
 
-    # 6. Global Legend
-    # Order: User First, then predefined order
-    preferred_order = ['Evaluated alloy', 'Steels', 'Ni superalloys', 'FCC HEAs', 'BCC-(R)HEAs & HESAs']
-    
+            # Re-enable user line if it was clipped by limits?
+            # Usually axvline works regardless, but let's ensure limits cover it
+            cur_xlim = ax.get_xlim()
+            if user_val < cur_xlim[0] or user_val > cur_xlim[1]:
+                # Expand to include user
+                new_min = min(cur_xlim[0], user_val * 0.8 if user_val>0 else user_val-0.1)
+                new_max = max(cur_xlim[1], user_val * 1.2 if user_val>0 else user_val+0.1)
+                ax.set_xlim(new_min, new_max)
+
+    # Global Legend (Manual)
     handles = []
-    labels = []
+    # Add Benchmarks
+    for cls, color in CLASS_COLORS.items():
+        if df_benchmarks is not None and cls in df_benchmarks['Class'].unique():
+            patch = mpatches.Patch(color=color, label=cls, alpha=0.7)
+            handles.append(patch)
     
-    for label in preferred_order:
-        if label in legend_artists:
-            handles.append(legend_artists[label])
-            labels.append(label)
+    # Add User
+    user_line = plt.Line2D([0], [0], color=USER_COLOR, linewidth=2.5, label='Your Alloy')
+    handles.insert(0, user_line) # Put user first
     
-    # Legend at the bottom
-    fig.legend(handles, labels, 
-               loc='upper center', 
-               bbox_to_anchor=(0.5, 0.06),
-               ncol=3, 
-               frameon=False, 
-               fontsize=10,
-               handletextpad=0.5, columnspacing=1.5)
+    fig.legend(handles=handles, loc='lower center', ncol=len(handles), 
+               bbox_to_anchor=(0.5, 0.02), frameon=False, fontsize=12)
+    
+    # Add global titles for rows? (Economic, Env, Soc)
+    # Using text annotations on the figure
+    fig.text(0.01, 0.78, "Economic", rotation=90, va='center', ha='left', fontsize=14, fontweight='bold', color='#1f77b4')
+    fig.text(0.01, 0.50, "Environment", rotation=90, va='center', ha='left', fontsize=14, fontweight='bold', color='#2ca02c')
+    fig.text(0.01, 0.22, "Societal", rotation=90, va='center', ha='left', fontsize=14, fontweight='bold', color='#ff7f0e')
 
     return fig
 
@@ -256,48 +279,51 @@ def plot_comparison(user_results, df_benchmarks):
 
 st.title("🌍 Alloy Sustainability Calculator")
 st.markdown(f"**Compatible elements:** {SUPPORTED_ELEMENTS_STR}")
-st.markdown("Compare the **Economic, Environmental, and Societal impacts** of your alloy against industry standards.")
+st.markdown("Enter your alloy composition to assess its **Economic, Environmental, and Societal footprint** compared to industry standards.")
 
 df_elements, df_benchmarks = load_data()
 
 if df_elements is None:
     st.stop()
 
-# Input
-st.markdown("### 1. Alloy Composition")
-c1, c2 = st.columns([3, 1])
+# --- INPUT ---
+st.markdown("### 1. Composition Input")
+c1, c2 = st.columns([2, 3])
 with c1:
-    formula = st.text_input("Enter Formula (e.g., Co20Cr20Fe40Ni20)", value="Co20Cr20Fe40Ni20")
-
-# Compute
-comp, err = parse_formula(formula)
-if err:
-    st.error(err)
-    st.stop()
+    formula = st.text_input("Formula", value="Co20Cr20Fe40Ni20", help="Ex: Al10Co20Cr20Fe40Ni10")
     
-mass_fractions = convert_at_to_wt(comp)
-user_results = calculate_impacts(mass_fractions, df_elements)
+    comp, err = parse_formula(formula)
+    if err:
+        st.error(err)
+        st.stop()
+        
+    mass_fractions = convert_at_to_wt(comp)
+    user_results = calculate_impacts(mass_fractions, df_elements)
+    
+    # Show tiny metrics
+    total = sum(comp.values())
+    if abs(total - 100) > 0.1:
+        st.info(f"Input sum: {total:.1f}% (Normalized to 100%)")
 
-# Check total
-total = sum(comp.values())
-if abs(total - 100) > 0.1:
-    st.caption(f"Normalized from {total:.1f}% to 100%.")
+# --- DASHBOARD ---
+st.divider()
+st.markdown("### 2. Sustainability Dashboard")
 
-# Plot
-st.markdown("### 2. Sustainability Profile")
 if df_benchmarks is not None:
-    fig = plot_comparison(user_results, df_benchmarks)
+    fig = create_dashboard(user_results, df_benchmarks)
     st.pyplot(fig, use_container_width=True)
 else:
-    st.warning("Benchmarks not available. Showing raw values.")
+    st.warning("Benchmark data missing. Cannot generate dashboard.")
 
-# Table
-with st.expander("Show Detailed Numbers"):
-    st.write("Calculated values for your alloy:")
-    # Format nicely
-    disp_dict = {}
+# --- DATA TABLE ---
+with st.expander("📊 View Detailed Data Table"):
+    # Create a nice dataframe
+    rows = []
     for k, v in user_results.items():
-        unit = INDICATOR_INFO[k]['unit']
-        k_clean = k.split('(')[0].strip()
-        disp_dict[k_clean] = f"{v:.4g} {unit}".strip()
-    st.dataframe(pd.DataFrame([disp_dict]))
+        meta = INDICATOR_META[k]
+        rows.append({
+            "Indicator": k,
+            "Your Alloy Value": v,
+            "Unit": meta['unit']
+        })
+    st.dataframe(pd.DataFrame(rows).set_index("Indicator").style.format({"Your Alloy Value": "{:.4g}"}))
